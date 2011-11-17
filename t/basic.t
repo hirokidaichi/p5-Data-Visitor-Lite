@@ -83,4 +83,12 @@ use Data::Visitor::Lite;
         { hello => [ 2, 3, 4, 5 ], hoge => { hello => 'x02' }, test => 2 },
     );
 }
+{
+    my $deep = 10;
+    $deep = [$deep] for (1..100);
+    my $v = Data::Visitor::Lite->new(sub{$_[0]+10});
+    my $result = $v->visit($deep);
+    $result = $result->[0] for (1..100);
+    is($result,20);
+}
 ::done_testing;

@@ -1,16 +1,43 @@
 NAME
-    Data::Visitor::Lite -
+    Data::Visitor::Lite - an easy implementation of Data::Visitor::Callback
 
 SYNOPSIS
-      use Data::Visitor::Lite;
+        use Data::Visitor::Lite;
+        my $visitor = Data::Visitor::Lite->new($replacer);
+
+        my $value = $visitor->visit({ 
+          # some structure
+        });
 
 DESCRIPTION
-    Data::Visitor::Lite is
+    Data::Visitor::Lite is an easy implementation of Data::Visitor::Callback
+
+new(@replacers)
+    this is a constructor of Data::Visitor::Lite.
+
+        my $visitor = Data::Visitor::Lite->new(
+            # '-implements' replacer type means only replace 
+            #   when an object can implements provided methods
+            [-implements => ['to_plain_object'] => sub {$_[0]->to_plain_object}],
+
+            # '-isa' replace type means only replace 
+            #   when an object is a sub-class of provided package,
+            [-isa => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
+
+            # '-plain' replace type means only replace 
+            #   when an object is not a reference|blessed value 
+            [-plain => sub{ $_[0]+1}]
+
+        );
+
+        my $value = $visitor->visit({ something });
 
 AUTHOR
-    Default Name <default {at} example.com>
+    Daichi Hiroki <hirokidaichi {at} gmail.com>
 
 SEE ALSO
+    Data::Visitor::Callback
+
 LICENSE
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
