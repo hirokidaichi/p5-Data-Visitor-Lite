@@ -3,100 +3,150 @@ use strict;
 use warnings;
 no warnings 'recursion';
 use Carp qw/croak/;
+use Data::Util qw/:check/;
 use Scalar::Util qw/blessed refaddr/;
 use List::MoreUtils qw/all/;
 
-our $VERSION = '0.02';
+use constant AS_HASH_KEY => 1;
+our $VERSION = '0.02_1';
 
 our $REPLACER_GENERATOR = {
+    # only blessed value
+    '-object' => sub {
+        my ($code) = shift;
+        return sub {
+            my $value = shift;
+            return $value unless blessed $value;
+            return $code->($value);
+        };
+    },
+    # only blessed value and implements provided methods
     '-implements' => sub {
         my ( $args, $code ) = @_;
         return sub {
             my $value = shift;
-            return $value unless ref $value;
             return $value unless blessed $value;
             return $value unless all { $value->can($_) } @$args;
             return $code->($value);
         };
     },
-    '-isa' => sub {
+    # only blessed value and sub-class of provided package
+    '-instance' => sub {
         my ( $args, $code ) = @_;
         return sub {
             my $value = shift;
-            return $value unless ref $value;
-            return $value unless blessed $value;
-            return $value unless $value->isa($args);
+            return $value unless Data::Util::is_instance( $value, $args );
             return $code->($value);
         };
     },
-    '-plain' => sub {
+    # only hash key
+    '-hashkey' => sub {
         my ($code) = @_;
         return sub {
-            my ($value) = shift;
-            return $value if ref $value;
-            return $value if blessed $value;
+            my ( $value, $as_hash_key ) = @_;
+            return $value unless $as_hash_key;
+            return $code->($value);
+        };
+    },
+    # only all string with hash keys
+    '-string' => sub {
+        my ($code) = @_;
+        return sub {
+            my ( $value, $as_hash_key ) = @_;
+            return $value unless Data::Util::is_string($value);
             return $code->($value);
         }
     },
+    # list up other types
+    &__other_types,
 };
 
+sub __other_types {
+    my @types = qw/
+        scalar_ref
+        array_ref
+        hash_ref
+        code_ref
+        glob_ref
+        regex_ref
+        invocant
+        value
+        number
+        integer
+    /;
+    return map{__create_by_type($_)} @types;
+}
+
+sub __create_by_type {
+    my $type = shift;
+    return (
+        "-$type" => sub {
+            my ($code) = @_;
+            my $checker = Data::Util->can("is_$type");
+            return sub {
+                my ( $value, $as_hash_key ) = @_;
+                return $value if $as_hash_key;
+                return $value unless $checker->($value);
+                return $code->($value);
+            }
+        }
+    );
+}
 
 sub new {
     my ( $class, @replacers ) = @_;
-    return bless {
-        replacer => __compose_replacers(@replacers)
-    }, $class;
+    return bless { replacer => __compose_replacers(@replacers) }, $class;
 }
 
 sub __compose_replacers {
     my (@replacers) = @_;
     my @codes = map { __compose_replacer($_) } @replacers;
     return sub {
-        my ($value) = @_;
+        my ( $value, $as_hash_key ) = @_;
         for my $code (@codes) {
-            $value = $code->($value);
+            $value = $code->( $value, $as_hash_key );
         }
         return $value;
     };
 }
 
 sub __compose_replacer {
-    my ( $replacer ) = @_;
+    my ($replacer) = @_;
     return sub { $_[0] }
         unless defined $replacer;
-    return $replacer 
+    return $replacer
         unless ref $replacer;
-    return $replacer 
+    return $replacer
         if ref $replacer eq 'CODE';
 
     croak('replacer should not be hash ref')
         if ref $replacer eq 'HASH';
 
-    my ($type,$args,$code) = @$replacer;
-    my $generator = $REPLACER_GENERATOR->{$type} || sub{
+    my ( $type, $args, $code ) = @$replacer;
+    my $generator = $REPLACER_GENERATOR->{$type} || sub {
         croak('undefined replacer type');
     };
 
-    return $generator->($args,$code);
+    return $generator->( $args, $code );
 }
 
 sub visit {
-    my ( $self ,$target ) = @_;
+    my ( $self, $target ) = @_;
     $self->{seen} = {};
-    return $self->_visit( $target );
+    return $self->_visit($target);
 }
 
 sub _visit {
     my ( $self, $target ) = @_;
-    goto \&replace unless ref $target;
+    goto \&_replace unless ref $target;
     goto \&_visit_array if ref $target eq 'ARRAY';
     goto \&_visit_hash  if ref $target eq 'HASH';
-    goto \&replace;
+    goto \&_replace;
 }
 
-sub replace {
-    my ( $self, $value ) = @_;
-    return $self->{replacer}->($value);
+sub _replace {
+    my ( $self, $value, $as_hash_key ) = @_;
+    return $self->{replacer}->( $value, $as_hash_key );
 }
 
 sub _visit_array {
@@ -114,7 +164,9 @@ sub _visit_hash {
     my $addr = refaddr $target;
     return $self->{seen}{$addr} if defined $self->{seen}{$addr};
     my $new_hash = $self->{seen}{$addr} = {};
-    %$new_hash = map { $_ => $self->_visit( $target->{$_} ) } keys %$target;
+    %$new_hash = map {
+        $self->_replace( $_, AS_HASH_KEY ) => $self->_visit( $target->{$_} )
+    } keys %$target;
     return $new_hash;
 }
 
@@ -149,11 +201,10 @@ this is a constructor of Data::Visitor::Lite.
 
         # '-isa' replace type means only replace 
         #   when an object is a sub-class of provided package,
-        [-isa => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
+        [-instance => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
 
-        # '-plain' replace type means only replace 
-        #   when an object is not a reference|blessed value 
-        [-plain => sub{ $_[0]+1}]
+        # '-number' replace type means only replace 
+        [-value => sub{ $_[0]+1}]
 
     );
 

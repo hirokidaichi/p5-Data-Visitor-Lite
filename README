@@ -22,11 +22,10 @@ new(@replacers)
 
             # '-isa' replace type means only replace 
             #   when an object is a sub-class of provided package,
-            [-isa => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
+            [-instance => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
 
-            # '-plain' replace type means only replace 
-            #   when an object is not a reference|blessed value 
-            [-plain => sub{ $_[0]+1}]
+            # '-number' replace type means only replace 
+            [-value => sub{ $_[0]+1}]
 
         );
 
