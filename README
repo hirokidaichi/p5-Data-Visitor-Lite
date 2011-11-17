@@ -1,0 +1,17 @@
+NAME
+    Data::Visitor::Lite -
+
+SYNOPSIS
+      use Data::Visitor::Lite;
+
+DESCRIPTION
+    Data::Visitor::Lite is
+
+AUTHOR
+    Default Name <default {at} example.com>
+
+SEE ALSO
+LICENSE
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
