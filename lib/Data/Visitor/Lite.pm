@@ -8,7 +8,7 @@ use Scalar::Util qw/blessed refaddr/;
 use List::MoreUtils qw/all/;
 
 use constant AS_HASH_KEY => 1;
-our $VERSION = '0.02_1';
+our $VERSION = '0.03';
 
 our $REPLACER_GENERATOR = {
     # only blessed value
@@ -180,7 +180,7 @@ Data::Visitor::Lite - an easy implementation of Data::Visitor::Callback
 =head1 SYNOPSIS
 
     use Data::Visitor::Lite;
-    my $visitor = Data::Visitor::Lite->new($replacer);
+    my $visitor = Data::Visitor::Lite->new(@replacers);
 
     my $value = $visitor->visit({ 
       # some structure
@@ -195,20 +195,71 @@ Data::Visitor::Lite is an easy implementation of Data::Visitor::Callback
 this is a constructor of Data::Visitor::Lite.
 
     my $visitor = Data::Visitor::Lite->new(
-        # '-implements' replacer type means only replace 
-        #   when an object can implements provided methods
-        [-implements => ['to_plain_object'] => sub {$_[0]->to_plain_object}],
+        [   -implements => ['to_plain_object'] =>
+                sub { $_[0]->to_plain_object }
+        ],
+        [ -instance => 'Some::SuperClass' => sub { $_[0]->encode_to_utf8 } ]
+        [ $replacer_type => $converter ]
+    );
+    #or
 
-        # '-isa' replace type means only replace 
-        #   when an object is a sub-class of provided package,
-        [-instance => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
+    my $visitor2 = Data::Visitor::Lite->new(sub{
+        # callback all node of the structure
+    });
+    my $value = $visitor->visit({ something });
 
-        # '-number' replace type means only replace 
-        [-value => sub{ $_[0]+1}]
+=head1 replacer type
 
+Data::Visitor::Lite has many expressions to make replacer which is applied only specified data type.
+
+=head2 -implements
+
+If you want to convert only the objects that implements 'to_plain_object',
+you can write just following :
+
+    my $visitor = Data::Visitor::Lite->new(
+        [   -implements => ['to_plain_object'] => sub {
+                return $_[0]->to_plain_object;
+                }
+        ]
     );
 
-    my $value = $visitor->visit({ something });
+it means it is easy to convert structures using duck typing.
+
+=head2 -instance 
+
+"-instance" replacer type is able to create a converter for all instances of some class in the recursive structure.
+
+    my $visitor = Data::Visitor::Lite->new(
+        [ -instance => 'Person' => sub{ $_[0]->nickname }]
+    );
+
+    $visitor->visit({
+        master => Employer->new({ nickname => 'Kenji'}),
+        slave  => Employee->new({ nickname => 'Daichi'});
+    });
+
+    # { master => "Kenji", slave => 'Daichi'}
+
+=head2 -value
+
+"-value" means not a reference and/or blessed object.
+
+=head2 -hashkey
+
+"-hashkey" means key string of the hash reference in the structure.
+
+=head2 -string
+
+"-string" means hash keys and all string value in the structure.
+
+=head2 -object
+
+"-object" means a reference and/or blessed object
+
+=head2 other types
+
+the origin of other replace types is Data::Util.( e.g. glob_ref , scalar_ref, invocant , number ,integer and so on )
 
 =head1 AUTHOR
 
@@ -216,7 +267,7 @@ Daichi Hiroki E<lt>hirokidaichi {at} gmail.comE<gt>
 
 =head1 SEE ALSO
 
-L<Data::Visitor::Callback>
+L<Data::Visitor::Callback> L<Data::Util>
 
 =head1 LICENSE
 
