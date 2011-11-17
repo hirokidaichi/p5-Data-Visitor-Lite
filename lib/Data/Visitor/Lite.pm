@@ -3,10 +3,10 @@ use strict;
 use warnings;
 no warnings 'recursion';
 use Carp qw/croak/;
-use Scalar::Util qw/blessed/;
+use Scalar::Util qw/blessed refaddr/;
 use List::MoreUtils qw/all/;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 our $REPLACER_GENERATOR = {
     '-implements' => sub {
@@ -81,6 +81,12 @@ sub __compose_replacer {
 }
 
 sub visit {
+    my ( $self ,$target ) = @_;
+    $self->{seen} = {};
+    return $self->_visit( $target );
+}
+
+sub _visit {
     my ( $self, $target ) = @_;
     goto \&replace unless ref $target;
     goto \&_visit_array if ref $target eq 'ARRAY';
@@ -92,14 +98,24 @@ sub replace {
     my ( $self, $value ) = @_;
     return $self->{replacer}->($value);
 }
+
 sub _visit_array {
     my ( $self, $target ) = @_;
-    return [ map { $self->visit($_) } @$target ];
+    my $addr = refaddr $target;
+    return $self->{seen}{$addr}
+        if defined $self->{seen}{$addr};
+    my $new_array = $self->{seen}{$addr} = [];
+    @$new_array = map { $self->_visit($_) } @$target;
+    return $new_array;
 }
 
 sub _visit_hash {
     my ( $self, $target ) = @_;
-    return { map { $_ => $self->visit( $target->{$_} ) } keys %$target };
+    my $addr = refaddr $target;
+    return $self->{seen}{$addr} if defined $self->{seen}{$addr};
+    my $new_hash = $self->{seen}{$addr} = {};
+    %$new_hash = map { $_ => $self->_visit( $target->{$_} ) } keys %$target;
+    return $new_hash;
 }
 
 1;

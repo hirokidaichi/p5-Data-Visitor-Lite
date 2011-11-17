@@ -91,4 +91,17 @@ use Data::Visitor::Lite;
     $result = $result->[0] for (1..100);
     is($result,20);
 }
+{
+    my $ref1 = { hello => 1, world => 2};
+    my $ref2 = { moga => 3 ,piyo => 4};
+    $ref1->{ref} = $ref2;
+    $ref2->{ref} = $ref1;
+    my $v = Data::Visitor::Lite->new(sub{$_[0]+10});
+    my $result =  $v->visit($ref2);
+    ::is($result->{moga},$ref2->{moga}+10);
+    ::is($result->{piyo},$ref2->{piyo}+10);
+    ::is($result->{ref}{hello},$ref2->{ref}{hello}+10);
+    ::is($result->{ref}{ref}{piyo},$ref2->{ref}{ref}{piyo}+10);
+
+}
 ::done_testing;
