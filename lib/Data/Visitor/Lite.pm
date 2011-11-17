@@ -1,6 +1,7 @@
 package Data::Visitor::Lite;
 use strict;
 use warnings;
+no warnings 'recursion';
 use Carp qw/croak/;
 use Scalar::Util qw/blessed/;
 use List::MoreUtils qw/all/;
@@ -81,12 +82,10 @@ sub __compose_replacer {
 
 sub visit {
     my ( $self, $target ) = @_;
-
-    return $self->replace($target) unless ref $target;
-    return $self->_visit_array($target) if ref $target eq 'ARRAY';
-    return $self->_visit_hash($target)  if ref $target eq 'HASH';
-
-    return $self->replace($target);
+    goto \&replace unless ref $target;
+    goto \&_visit_array if ref $target eq 'ARRAY';
+    goto \&_visit_hash  if ref $target eq 'HASH';
+    goto \&replace;
 }
 
 sub replace {
@@ -108,27 +107,49 @@ __END__
 
 =head1 NAME
 
-Data::Visitor::Lite -
+Data::Visitor::Lite - an easy implementation of Data::Visitor::Callback
 
 =head1 SYNOPSIS
 
-  use Data::Visitor::Lite;
+    use Data::Visitor::Lite;
+    my $visitor = Data::Visitor::Lite->new($replacer);
 
-    my $visitor = Data::Visitor::Lite->new([
-         'Hoge::Fuga'     => sub { } ,
-         'Text::Template' => sub { } ,
-          sub {}
-    ]);
+    my $value = $visitor->visit({ 
+      # some structure
+    });
 
 =head1 DESCRIPTION
 
-Data::Visitor::Lite is
+Data::Visitor::Lite is an easy implementation of Data::Visitor::Callback
+
+=head1 new(@replacers)
+
+this is a constructor of Data::Visitor::Lite.
+
+    my $visitor = Data::Visitor::Lite->new(
+        # '-implements' replacer type means only replace 
+        #   when an object can implements provided methods
+        [-implements => ['to_plain_object'] => sub {$_[0]->to_plain_object}],
+
+        # '-isa' replace type means only replace 
+        #   when an object is a sub-class of provided package,
+        [-isa => 'Some::SuperClass' => sub{$_[0]->encode_to_utf8}]
+
+        # '-plain' replace type means only replace 
+        #   when an object is not a reference|blessed value 
+        [-plain => sub{ $_[0]+1}]
+
+    );
+
+    my $value = $visitor->visit({ something });
 
 =head1 AUTHOR
 
-Default Name E<lt>default {at} example.comE<gt>
+Daichi Hiroki E<lt>hirokidaichi {at} gmail.comE<gt>
 
 =head1 SEE ALSO
+
+L<Data::Visitor::Callback>
 
 =head1 LICENSE
 
