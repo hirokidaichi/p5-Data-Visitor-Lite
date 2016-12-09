@@ -5,7 +5,7 @@ readme_from 'lib/Data/Visitor/Lite.pm';
 githubmeta;
 
 requires 'Data::Util';
-requires 'List::MoreUtils';
+requires 'List::Util' => '1.33';
 requires 'Scalar::Util';
 requires 'Carp';
 
