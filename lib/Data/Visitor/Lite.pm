@@ -5,7 +5,7 @@ no warnings 'recursion';
 use Carp qw/croak/;
 use Data::Util qw/:check/;
 use Scalar::Util qw/blessed refaddr/;
-use List::MoreUtils qw/all/;
+use List::Util qw/all/;
 
 use constant AS_HASH_KEY => 1;
 our $VERSION = '0.03';
